@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:drag_and_drop_lists/drag_and_drop_lists.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +13,7 @@ import '../task_card_ui_status.dart';
 import 'task_card_tile.dart';
 
 /// Канбан на [drag_and_drop_lists]: горизонтальные колонки, карточки между колонками и внутри.
-class KanbanDragBoard extends StatelessWidget {
+class KanbanDragBoard extends StatefulWidget {
   const KanbanDragBoard({
     super.key,
     required this.columns,
@@ -30,17 +32,37 @@ class KanbanDragBoard extends StatelessWidget {
   static const double listWidth = 300;
 
   @override
+  State<KanbanDragBoard> createState() => _KanbanDragBoardState();
+}
+
+class _KanbanDragBoardState extends State<KanbanDragBoard> {
+  late final ScrollController _horizontalScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _horizontalScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final compact = cardDensity == CardDensity.compact;
+    final compact = widget.cardDensity == CardDensity.compact;
 
     final children = <DragAndDropList>[
-      for (final column in columns) _buildList(context, column, compact),
+      for (final column in widget.columns) _buildList(context, column, compact),
     ];
 
-    return DragAndDropLists(
+    final board = DragAndDropLists(
+      scrollController: _horizontalScrollController,
       axis: Axis.horizontal,
-      listWidth: listWidth,
+      listWidth: KanbanDragBoard.listWidth,
       listDivider: const SizedBox(width: 12),
       listDividerOnLastChild: false,
       listPadding: EdgeInsets.zero,
@@ -52,7 +74,7 @@ class KanbanDragBoard extends StatelessWidget {
       itemDivider: SizedBox(height: compact ? 6 : 8),
       lastItemTargetHeight: 32,
       lastListTargetSize: 56,
-      itemDraggingWidth: listWidth - 28,
+      itemDraggingWidth: KanbanDragBoard.listWidth - 28,
       itemDecorationWhileDragging: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
@@ -68,11 +90,12 @@ class KanbanDragBoard extends StatelessWidget {
         height: compact ? 56 : 72,
       ),
       children: children,
+      // Не вызывать emit/Bloc при drag — иначе пересоздаются [DragAndDropItem],
+      // пакет ищет перетаскиваемый элемент по ссылке (==) и [onItemReorder] не срабатывает.
       onItemDraggingChanged: (item, dragging) {
         if (dragging) {
           HapticFeedback.selectionClick();
         }
-        context.read<BoardCubit>().onItemDragChanged(item, dragging);
       },
       onItemReorder: (oldItemIndex, oldListIndex, newItemIndex, newListIndex) {
         HapticFeedback.mediumImpact();
@@ -84,6 +107,19 @@ class KanbanDragBoard extends StatelessWidget {
             );
       },
       onListReorder: (_, _) {},
+    );
+
+    // Горизонтальный скролл колонок: полоса прокрутки + на десктопе — drag мышью
+    // (по умолчанию у [ListView] он отключён).
+    return ScrollConfiguration(
+      behavior: _KanbanDragBoardScrollBehavior(),
+      child: Scrollbar(
+        controller: _horizontalScrollController,
+        thumbVisibility: true,
+        trackVisibility: true,
+        interactive: true,
+        child: board,
+      ),
     );
   }
 
@@ -152,20 +188,21 @@ class KanbanDragBoard extends StatelessWidget {
       for (final task in column.tasks)
         DragAndDropItem(
           key: ValueKey<int>(task.indicatorToMoId),
-          canDrag: dragEnabled &&
-              (taskUiById[task.indicatorToMoId] ?? TaskCardUiStatus.idle) !=
+          canDrag: widget.dragEnabled &&
+              (widget.taskUiById[task.indicatorToMoId] ??
+                      TaskCardUiStatus.idle) !=
                   TaskCardUiStatus.saving,
           feedbackWidget: _DragFeedback(
             task: task,
-            taskUiById: taskUiById,
-            density: cardDensity,
+            taskUiById: widget.taskUiById,
+            density: widget.cardDensity,
           ),
           child: TaskCardTile(
             task: task,
-            density: cardDensity,
-            status:
-                taskUiById[task.indicatorToMoId] ?? TaskCardUiStatus.idle,
-            onTap: () => onTaskTap(task),
+            density: widget.cardDensity,
+            status: widget.taskUiById[task.indicatorToMoId] ??
+                TaskCardUiStatus.idle,
+            onTap: () => widget.onTaskTap(task),
           ),
         ),
     ];
@@ -195,6 +232,17 @@ class KanbanDragBoard extends StatelessWidget {
       children: items,
     );
   }
+}
+
+/// Разрешает перетаскивать горизонтальный [ListView] колонок мышью (macOS/Windows/Linux).
+class _KanbanDragBoardScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.mouse,
+      };
 }
 
 class _DragFeedback extends StatelessWidget {

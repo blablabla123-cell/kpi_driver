@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:drag_and_drop_lists/drag_and_drop_lists.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/default_board_query.dart';
@@ -263,7 +261,7 @@ class BoardCubit extends Cubit<BoardState> {
       indicatorToMoId: task.indicatorToMoId,
       authUserId: DefaultBoardQuery.authUserId,
       fieldName: 'order',
-      fieldValue: (task.order ?? 0).toString(),
+      fieldValue: (task.order ?? 1).toString(),
     );
   }
 
@@ -275,20 +273,6 @@ class BoardCubit extends Cubit<BoardState> {
       ui.remove(taskId);
       emit(state.copyWith(taskUiById: ui));
     });
-  }
-
-  void onItemDragChanged(DragAndDropItem item, bool dragging) {
-    final id = _taskIdFromKey(item.key);
-    if (id == null) return;
-    if (state.taskUiById[id] == TaskCardUiStatus.saving) return;
-
-    final next = Map<int, TaskCardUiStatus>.from(state.taskUiById);
-    if (dragging) {
-      next[id] = TaskCardUiStatus.dragging;
-    } else {
-      next.remove(id);
-    }
-    emit(state.copyWith(taskUiById: next));
   }
 
   static bool _samePersistedFields(TaskItem before, TaskItem after) {
@@ -311,12 +295,11 @@ class BoardCubit extends Cubit<BoardState> {
     ];
   }
 
+  /// API KPI-DRIVE отдаёт `order` с 1 (см. ответ get_mo_indicators). Сохраняем в том же виде.
   static List<TaskItem> _withSequentialOrder(List<TaskItem> tasks) {
-    return [for (var i = 0; i < tasks.length; i++) tasks[i].copyWith(order: i)];
+    return [
+      for (var i = 0; i < tasks.length; i++) tasks[i].copyWith(order: i + 1),
+    ];
   }
 
-  static int? _taskIdFromKey(Key? key) {
-    if (key is ValueKey<int>) return key.value;
-    return null;
-  }
 }

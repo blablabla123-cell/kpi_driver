@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ThemeState extends Equatable {
@@ -23,7 +24,12 @@ class ThemeCubit extends Cubit<ThemeState> {
   void toggleLightDark() {
     final next = switch (state.themeMode) {
       ThemeMode.dark => ThemeMode.light,
-      _ => ThemeMode.dark,
+      ThemeMode.light => ThemeMode.dark,
+      ThemeMode.system =>
+        SchedulerBinding.instance.platformDispatcher.platformBrightness ==
+                Brightness.dark
+            ? ThemeMode.light
+            : ThemeMode.dark,
     };
     emit(state.copyWith(themeMode: next));
   }

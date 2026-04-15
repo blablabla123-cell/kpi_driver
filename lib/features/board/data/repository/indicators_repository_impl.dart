@@ -38,9 +38,7 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
         'response_fields': responseFields,
         'auth_user_id': authUserId,
       },
-      options: Options(
-        responseType: ResponseType.json,
-      ),
+      options: Options(responseType: ResponseType.json),
     );
 
     if (!_isHttpOk(res.statusCode)) {
@@ -118,15 +116,29 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
   static List<Object?> _extractItemsList(Map<String, dynamic>? body) {
     if (body == null) return const [];
 
+    // Реальный ответ KPI-DRIVE: { "DATA": { "rows": [ {...}, ... ] } } (ключ DATA в верхнем регистре).
+    final dataUpper = asStringKeyMap(body['DATA']);
+    if (dataUpper != null) {
+      final rows = dataUpper['rows'];
+      if (rows is List) {
+        return rows;
+      }
+    }
+
     final data = body['data'];
     if (data is List) {
       return data;
     }
 
     if (data is Map) {
-      final items = data['items'];
+      final dataMap = asStringKeyMap(data);
+      final items = dataMap?['items'];
       if (items is List) {
         return items;
+      }
+      final rows = dataMap?['rows'];
+      if (rows is List) {
+        return rows;
       }
     }
 

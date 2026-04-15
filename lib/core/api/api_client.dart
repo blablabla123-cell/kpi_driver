@@ -38,10 +38,10 @@ class ApiClient {
       ),
     );
 
-    if (kDebugMode) {
+    // В release логи отключены; в debug/profile — видны POST (в т.ч. save) в консоли.
+    if (!kReleaseMode) {
       dio.interceptors.add(
         LogInterceptor(
-          // Включено в debug, чтобы было видно `Authorization: Bearer …` (токен задан в [BaseOptions.headers]).
           requestHeader: true,
           requestBody: true,
           responseHeader: false,

@@ -17,8 +17,6 @@ class KanbanBoardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mode = context.select((ThemeCubit c) => c.state.themeMode);
-
     return BlocListener<BoardCubit, BoardState>(
       listenWhen: (prev, curr) =>
           curr.snackNonce != prev.snackNonce && curr.snackMessage != null,
@@ -98,10 +96,11 @@ class KanbanBoardScreen extends StatelessWidget {
             IconButton(
               tooltip: 'Тема',
               onPressed: () => context.read<ThemeCubit>().toggleLightDark(),
-              icon: Icon(switch (mode) {
-                ThemeMode.dark => Icons.dark_mode_outlined,
-                _ => Icons.light_mode_outlined,
-              }),
+              icon: Icon(
+                Theme.of(context).brightness == Brightness.dark
+                    ? Icons.dark_mode_outlined
+                    : Icons.light_mode_outlined,
+              ),
             ),
           ],
         ),
