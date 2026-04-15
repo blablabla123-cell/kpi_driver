@@ -9,6 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.5
+  google_fonts: ^6.3.0
+  dio: ^5.9.0
+  flutter_svg: ^2.2.0
+  drag_and_drop_lists: ^0.4.2
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
