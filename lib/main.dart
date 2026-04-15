@@ -3,9 +3,27 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'app/theme/app_theme.dart';
 import 'app/theme/theme_cubit.dart';
+import 'core/api/api_client.dart';
+import 'core/api/api_config.dart';
+import 'features/board/data/repository/indicators_repository_impl.dart';
+import 'features/board/domain/usecases/fetch_tasks.dart';
+import 'features/board/presentation/cubit/board_cubit.dart';
+import 'features/board/presentation/kanban_board_screen.dart';
 
 void main() {
-  runApp(BlocProvider(create: (_) => ThemeCubit(), child: const MainApp()));
+  final apiClient = ApiClient(config: ApiConfig.dev);
+  final repo = IndicatorsRepositoryImpl(apiClient);
+  final fetchTasks = FetchTasks(repo);
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => ThemeCubit()),
+        BlocProvider(create: (_) => BoardCubit(fetchTasks)..load()),
+      ],
+      child: const MainApp(),
+    ),
+  );
 }
 
 class MainApp extends StatelessWidget {
@@ -19,36 +37,10 @@ class MainApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: state.themeMode,
-          home: const _HomeScreen(),
+          home: const KanbanBoardScreen(),
           debugShowCheckedModeBanner: false,
         );
       },
-    );
-  }
-}
-
-class _HomeScreen extends StatelessWidget {
-  const _HomeScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final mode = context.select((ThemeCubit c) => c.state.themeMode);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('KPI Driver'),
-        actions: [
-          IconButton(
-            tooltip: 'Toggle theme',
-            onPressed: () => context.read<ThemeCubit>().toggleLightDark(),
-            icon: Icon(switch (mode) {
-              ThemeMode.dark => Icons.dark_mode_outlined,
-              _ => Icons.light_mode_outlined,
-            }),
-          ),
-        ],
-      ),
-      body: const Center(child: Text('Hello World!')),
     );
   }
 }
