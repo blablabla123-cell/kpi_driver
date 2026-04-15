@@ -9,6 +9,7 @@ import 'features/board/data/repository/indicators_repository_impl.dart';
 import 'features/board/domain/usecases/fetch_tasks.dart';
 import 'features/board/domain/usecases/save_task_field.dart';
 import 'features/board/presentation/cubit/board_cubit.dart';
+import 'features/board/presentation/cubit/board_view_cubit.dart';
 import 'features/board/presentation/kanban_board_screen.dart';
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => ThemeCubit()),
+        BlocProvider(create: (_) => BoardViewCubit()),
         BlocProvider(
           create: (_) => BoardCubit(fetchTasks, saveTaskField)..load(),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/board_column.dart';
 import '../../domain/entities/task_item.dart';
+import '../card_density.dart';
 import '../cubit/board_cubit.dart';
 import '../task_card_ui_status.dart';
 import 'task_card_tile.dart';
@@ -16,20 +17,25 @@ class KanbanDragBoard extends StatelessWidget {
     required this.columns,
     required this.taskUiById,
     required this.onTaskTap,
+    this.cardDensity = CardDensity.comfortable,
+    this.dragEnabled = true,
   });
 
   final List<BoardColumn> columns;
   final Map<int, TaskCardUiStatus> taskUiById;
   final void Function(TaskItem task) onTaskTap;
+  final CardDensity cardDensity;
+  final bool dragEnabled;
 
   static const double listWidth = 300;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final compact = cardDensity == CardDensity.compact;
 
     final children = <DragAndDropList>[
-      for (final column in columns) _buildList(context, column),
+      for (final column in columns) _buildList(context, column, compact),
     ];
 
     return DragAndDropLists(
@@ -43,7 +49,7 @@ class KanbanDragBoard extends StatelessWidget {
       itemDragOnLongPress: true,
       itemSizeAnimationDurationMilliseconds: 220,
       itemGhostOpacity: 0.35,
-      itemDivider: const SizedBox(height: 8),
+      itemDivider: SizedBox(height: compact ? 6 : 8),
       lastItemTargetHeight: 32,
       lastListTargetSize: 56,
       itemDraggingWidth: listWidth - 28,
@@ -57,7 +63,10 @@ class KanbanDragBoard extends StatelessWidget {
           ),
         ],
       ),
-      itemGhost: _ItemGhostPlaceholder(color: scheme.surfaceContainerHigh),
+      itemGhost: _ItemGhostPlaceholder(
+        color: scheme.surfaceContainerHigh,
+        height: compact ? 56 : 72,
+      ),
       children: children,
       onItemDraggingChanged: (item, dragging) {
         if (dragging) {
@@ -81,11 +90,12 @@ class KanbanDragBoard extends StatelessWidget {
   DragAndDropList _buildList(
     BuildContext context,
     BoardColumn column,
+    bool compact,
   ) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final header = Row(
+    final headerRow = Row(
       children: [
         Expanded(
           child: Text(
@@ -115,19 +125,44 @@ class KanbanDragBoard extends StatelessWidget {
       ],
     );
 
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+          child: Material(
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: headerRow,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Divider(
+          height: 1,
+          thickness: 1,
+          color: scheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ],
+    );
+
     final items = <DragAndDropItem>[
       for (final task in column.tasks)
         DragAndDropItem(
           key: ValueKey<int>(task.indicatorToMoId),
-          canDrag:
+          canDrag: dragEnabled &&
               (taskUiById[task.indicatorToMoId] ?? TaskCardUiStatus.idle) !=
                   TaskCardUiStatus.saving,
           feedbackWidget: _DragFeedback(
             task: task,
             taskUiById: taskUiById,
+            density: cardDensity,
           ),
           child: TaskCardTile(
             task: task,
+            density: cardDensity,
             status:
                 taskUiById[task.indicatorToMoId] ?? TaskCardUiStatus.idle,
             onTap: () => onTaskTap(task),
@@ -143,7 +178,7 @@ class KanbanDragBoard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       header: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
         child: header,
       ),
       contentsWhenEmpty: Padding(
@@ -166,10 +201,12 @@ class _DragFeedback extends StatelessWidget {
   const _DragFeedback({
     required this.task,
     required this.taskUiById,
+    required this.density,
   });
 
   final TaskItem task;
   final Map<int, TaskCardUiStatus> taskUiById;
+  final CardDensity density;
 
   @override
   Widget build(BuildContext context) {
@@ -179,6 +216,7 @@ class _DragFeedback extends StatelessWidget {
         color: Colors.transparent,
         child: TaskCardTile(
           task: task,
+          density: density,
           status:
               taskUiById[task.indicatorToMoId] ?? TaskCardUiStatus.dragging,
         ),
@@ -188,14 +226,15 @@ class _DragFeedback extends StatelessWidget {
 }
 
 class _ItemGhostPlaceholder extends StatelessWidget {
-  const _ItemGhostPlaceholder({required this.color});
+  const _ItemGhostPlaceholder({required this.color, required this.height});
 
   final Color color;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
+      height: height,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),

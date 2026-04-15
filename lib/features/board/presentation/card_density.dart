@@ -1,0 +1,4 @@
+enum CardDensity {
+  comfortable,
+  compact,
+}
