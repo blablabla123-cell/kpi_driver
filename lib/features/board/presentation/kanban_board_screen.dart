@@ -14,87 +14,111 @@ class KanbanBoardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final mode = context.select((ThemeCubit c) => c.state.themeMode);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Доска'),
-        actions: [
-          IconButton(
-            tooltip: 'Обновить',
-            onPressed: () => context.read<BoardCubit>().load(),
-            icon: const Icon(Icons.refresh_rounded),
+    return BlocListener<BoardCubit, BoardState>(
+      listenWhen: (prev, curr) =>
+          curr.snackNonce != prev.snackNonce && curr.snackMessage != null,
+      listener: (context, state) {
+        final message = state.snackMessage;
+        if (message == null) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            action: state.snackShowUndo
+                ? SnackBarAction(
+                    label: 'Отменить',
+                    onPressed: () {
+                      context.read<BoardCubit>().undoLastSave();
+                    },
+                  )
+                : null,
           ),
-          IconButton(
-            tooltip: 'Тема',
-            onPressed: () => context.read<ThemeCubit>().toggleLightDark(),
-            icon: Icon(switch (mode) {
-              ThemeMode.dark => Icons.dark_mode_outlined,
-              _ => Icons.light_mode_outlined,
-            }),
-          ),
-        ],
-      ),
-      body: BlocBuilder<BoardCubit, BoardState>(
-        builder: (context, state) {
-          return switch (state.status) {
-            BoardLoadStatus.initial => const BoardLoadingShimmer(),
-            BoardLoadStatus.loading => const BoardLoadingShimmer(),
-            BoardLoadStatus.failure => _BoardError(
-                message: state.errorMessage ?? 'Не удалось загрузить задачи',
-                onRetry: () => context.read<BoardCubit>().load(),
-              ),
-            BoardLoadStatus.success => state.isBoardEmpty
-                ? _BoardEmpty(onRetry: () => context.read<BoardCubit>().load())
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                    child: KanbanDragBoard(
-                      columns: state.columns,
-                      taskUiById: state.taskUiById,
-                      onTaskTap: (task) {
-                        showModalBottomSheet<void>(
-                          context: context,
-                          showDragHandle: true,
-                          builder: (ctx) {
-                            final tt = Theme.of(ctx).textTheme;
-                            return SafeArea(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      task.name,
-                                      style: tt.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'ID: ${task.indicatorToMoId}',
-                                      style: tt.bodyMedium?.copyWith(
-                                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    if (task.parentId != null) ...[
-                                      const SizedBox(height: 4),
+        );
+        context.read<BoardCubit>().consumeSnackBar();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Доска'),
+          actions: [
+            IconButton(
+              tooltip: 'Обновить',
+              onPressed: () => context.read<BoardCubit>().load(),
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+            IconButton(
+              tooltip: 'Тема',
+              onPressed: () => context.read<ThemeCubit>().toggleLightDark(),
+              icon: Icon(switch (mode) {
+                ThemeMode.dark => Icons.dark_mode_outlined,
+                _ => Icons.light_mode_outlined,
+              }),
+            ),
+          ],
+        ),
+        body: BlocBuilder<BoardCubit, BoardState>(
+          builder: (context, state) {
+            return switch (state.status) {
+              BoardLoadStatus.initial => const BoardLoadingShimmer(),
+              BoardLoadStatus.loading => const BoardLoadingShimmer(),
+              BoardLoadStatus.failure => _BoardError(
+                  message: state.errorMessage ?? 'Не удалось загрузить задачи',
+                  onRetry: () => context.read<BoardCubit>().load(),
+                ),
+              BoardLoadStatus.success => state.isBoardEmpty
+                  ? _BoardEmpty(onRetry: () => context.read<BoardCubit>().load())
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                      child: KanbanDragBoard(
+                        columns: state.columns,
+                        taskUiById: state.taskUiById,
+                        onTaskTap: (task) {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            showDragHandle: true,
+                            builder: (ctx) {
+                              final tt = Theme.of(ctx).textTheme;
+                              return SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
                                       Text(
-                                        'Папка (parent_id): ${task.parentId}',
-                                        style: tt.bodySmall?.copyWith(
+                                        task.name,
+                                        style: tt.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'ID: ${task.indicatorToMoId}',
+                                        style: tt.bodyMedium?.copyWith(
                                           color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                                         ),
                                       ),
+                                      if (task.parentId != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Папка (parent_id): ${task.parentId}',
+                                          style: tt.bodySmall?.copyWith(
+                                            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-          };
-        },
+            };
+          },
+        ),
       ),
     );
   }

@@ -119,6 +119,9 @@ class KanbanDragBoard extends StatelessWidget {
       for (final task in column.tasks)
         DragAndDropItem(
           key: ValueKey<int>(task.indicatorToMoId),
+          canDrag:
+              (taskUiById[task.indicatorToMoId] ?? TaskCardUiStatus.idle) !=
+                  TaskCardUiStatus.saving,
           feedbackWidget: _DragFeedback(
             task: task,
             taskUiById: taskUiById,

@@ -7,6 +7,7 @@ import 'core/api/api_client.dart';
 import 'core/api/api_config.dart';
 import 'features/board/data/repository/indicators_repository_impl.dart';
 import 'features/board/domain/usecases/fetch_tasks.dart';
+import 'features/board/domain/usecases/save_task_field.dart';
 import 'features/board/presentation/cubit/board_cubit.dart';
 import 'features/board/presentation/kanban_board_screen.dart';
 
@@ -14,12 +15,15 @@ void main() {
   final apiClient = ApiClient(config: ApiConfig.dev);
   final repo = IndicatorsRepositoryImpl(apiClient);
   final fetchTasks = FetchTasks(repo);
+  final saveTaskField = SaveTaskField(repo);
 
   runApp(
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => ThemeCubit()),
-        BlocProvider(create: (_) => BoardCubit(fetchTasks)..load()),
+        BlocProvider(
+          create: (_) => BoardCubit(fetchTasks, saveTaskField)..load(),
+        ),
       ],
       child: const MainApp(),
     ),
