@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_endpoints.dart';
+import '../../../../core/api/safe_json_map.dart';
 import '../../domain/entities/task_item.dart';
 import '../../domain/repositories/indicators_repository.dart';
 import '../dto/indicator_task_dto.dart';
@@ -11,6 +12,8 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
   IndicatorsRepositoryImpl(this._api);
 
   final ApiClient _api;
+
+  static bool _isHttpOk(int? code) => code != null && code >= 200 && code < 300;
 
   @override
   Future<List<TaskItem>> fetchTasks({
@@ -40,12 +43,28 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
       ),
     );
 
-    final body = res.data;
+    if (!_isHttpOk(res.statusCode)) {
+      throw DioException(
+        requestOptions: res.requestOptions,
+        response: res,
+        type: DioExceptionType.badResponse,
+      );
+    }
+
+    final body = asStringKeyMap(res.data);
+    if (body == null && res.data != null) {
+      throw const FormatException('Сервер вернул ответ не в формате JSON-объекта.');
+    }
+
     final list = _extractItemsList(body);
-    return list
-        .map((e) => IndicatorTaskDto.fromJson(e).toDomain())
-        .where((t) => t.indicatorToMoId != 0 && t.name.trim().isNotEmpty)
-        .toList(growable: false);
+    final out = <TaskItem>[];
+    for (final raw in list) {
+      final dto = IndicatorTaskDto.tryParse(raw);
+      if (dto != null) {
+        out.add(dto.toDomain());
+      }
+    }
+    return List<TaskItem>.unmodifiable(out);
   }
 
   @override
@@ -58,7 +77,7 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
     required String fieldName,
     required String fieldValue,
   }) async {
-    await _api.postFormData<Map<String, dynamic>>(
+    final res = await _api.postFormData<Map<String, dynamic>>(
       ApiEndpoints.saveIndicatorInstanceField,
       fields: {
         'period_start': periodStart,
@@ -71,39 +90,51 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
       },
       options: Options(responseType: ResponseType.json),
     );
+
+    if (!_isHttpOk(res.statusCode)) {
+      throw DioException(
+        requestOptions: res.requestOptions,
+        response: res,
+        type: DioExceptionType.badResponse,
+      );
+    }
+    _throwIfPayloadIndicatesFailure(res.data);
   }
 
-  static List<Map<String, dynamic>> _extractItemsList(
-    Map<String, dynamic>? body,
-  ) {
+  static void _throwIfPayloadIndicatesFailure(Object? data) {
+    final m = asStringKeyMap(data is Map ? data : null);
+    if (m == null) return;
+    final ok = m['success'];
+    if (ok is bool && ok == false) {
+      final msg = m['message'] ?? m['error'] ?? m['error_message'];
+      throw FormatException(
+        (msg != null && msg.toString().trim().isNotEmpty)
+            ? msg.toString()
+            : 'Сервер отклонил сохранение.',
+      );
+    }
+  }
+
+  static List<Object?> _extractItemsList(Map<String, dynamic>? body) {
     if (body == null) return const [];
 
     final data = body['data'];
     if (data is List) {
-      return data.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      return data;
     }
 
-    // Some APIs return: { data: { items: [...] } }
     if (data is Map) {
       final items = data['items'];
       if (items is List) {
-        return items
-            .whereType<Map>()
-            .map((e) => e.cast<String, dynamic>())
-            .toList();
+        return items;
       }
     }
 
-    // Fallback: maybe the list is directly in body['result'].
     final result = body['result'];
     if (result is List) {
-      return result
-          .whereType<Map>()
-          .map((e) => e.cast<String, dynamic>())
-          .toList();
+      return result;
     }
 
     return const [];
   }
 }
-

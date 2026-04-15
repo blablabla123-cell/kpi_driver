@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/default_board_query.dart';
+import '../../../../core/errors/user_friendly_error.dart';
 import '../../domain/entities/board_column.dart';
 import '../../domain/entities/task_item.dart';
 import '../../domain/services/build_board_columns.dart';
@@ -58,7 +59,7 @@ class BoardCubit extends Cubit<BoardState> {
       emit(
         state.copyWith(
           status: BoardLoadStatus.failure,
-          errorMessage: e.toString(),
+          errorMessage: userFriendlyMessage(e),
           columns: const [],
           taskUiById: {},
           clearSnackMessage: true,
@@ -102,14 +103,14 @@ class BoardCubit extends Cubit<BoardState> {
           snackShowUndo: false,
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (isClosed) return;
       final cleared = Map<int, TaskCardUiStatus>.from(state.taskUiById)..remove(taskId);
       emit(
         state.copyWith(
           taskUiById: cleared,
           snackNonce: state.snackNonce + 1,
-          snackMessage: 'Не удалось отменить на сервере. Проверьте сеть.',
+          snackMessage: 'Не удалось отменить: ${userFriendlyMessage(e)}',
           snackShowUndo: false,
         ),
       );
@@ -233,7 +234,7 @@ class BoardCubit extends Cubit<BoardState> {
           columns: _cloneColumns(columnsBefore),
           taskUiById: ui,
           snackNonce: state.snackNonce + 1,
-          snackMessage: 'Не удалось сохранить: ${e.toString()}',
+          snackMessage: 'Не удалось сохранить: ${userFriendlyMessage(e)}',
           snackShowUndo: false,
         ),
       );

@@ -41,7 +41,8 @@ class ApiClient {
     if (kDebugMode) {
       dio.interceptors.add(
         LogInterceptor(
-          requestHeader: false,
+          // Включено в debug, чтобы было видно `Authorization: Bearer …` (токен задан в [BaseOptions.headers]).
+          requestHeader: true,
           requestBody: true,
           responseHeader: false,
           responseBody: true,
