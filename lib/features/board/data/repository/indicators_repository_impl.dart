@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_endpoints.dart';
+import '../../../../core/api/api_error_text.dart';
 import '../../../../core/api/safe_json_map.dart';
 import '../../domain/entities/task_item.dart';
 import '../../domain/repositories/indicators_repository.dart';
@@ -102,6 +103,13 @@ class IndicatorsRepositoryImpl implements IndicatorsRepository {
   static void _throwIfPayloadIndicatesFailure(Object? data) {
     final m = asStringKeyMap(data is Map ? data : null);
     if (m == null) return;
+
+    // KPI-DRIVE: ошибки часто в MESSAGES.error (массив строк), при этом STATUS может оставаться "OK".
+    final fromMessages = extractKpiMessagesError(m);
+    if (fromMessages != null) {
+      throw FormatException(fromMessages);
+    }
+
     final ok = m['success'];
     if (ok is bool && ok == false) {
       final msg = m['message'] ?? m['error'] ?? m['error_message'];
